@@ -3,6 +3,36 @@ class No:
         self.dado = dado
         self.proximo = None
 
+class Fila:
+    def __init__(self):
+        self.inicio = None
+        self.fim = None
+
+    def enfileirar(self, dado):
+        novo_no = No(dado)
+
+        if self.fim is None:
+            self.inicio = novo_no
+            self.fim = novo_no
+        else:
+            self.fim.proximo = novo_no
+            self.fim = novo_no
+
+    def desenfileirar(self):
+        if self.inicio is None:
+            return None
+        else:
+            dado = self.inicio.dado
+            self.inicio = self.inicio.proximo
+
+            if self.inicio is None:
+                self.fim = None
+
+            return dado
+
+    def esta_vazia(self):
+        return self.inicio is None
+
 class ListaEncadeada:
     def __init__(self):
         self.inicio = None
@@ -50,4 +80,4 @@ class ListaEncadeada:
             self.inicio = atual.proximo
         else:
             anterior.proximo = atual.proximo
-            return True
+        return True
