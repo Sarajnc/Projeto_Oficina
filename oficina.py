@@ -28,6 +28,9 @@ class ControleOficina:
     
         self.clientes = ListaEncadeada()
         self.veiculos = ListaEncadeada()
+
+        self.total_elevadores = 2
+        self.elevadores_ocupados = 0
         
         self.fila_normal = Fila()
         self.fila_guincho = Fila()
@@ -118,4 +121,28 @@ class ControleOficina:
 
         print("Chegada registrada com sucesso!")        
 
+    def chamar_proximo(self):
+        if self.elevadores_ocupados >= self.total_elevadores:
+            print("Todos os elevadores estão ocupados!")
+            return
+
+        if not self.fila_guincho.esta_vazia():
+            atendimento = self.fila_guincho.desenfileirar()
+        elif not self.fila_normal.esta_vazia():
+            atendimento = self.fila_normal.desenfileirar()
+        else:
+            print("Não há veículos na fila")
+            return
         
+        self.elevadores_ocupados += 1 
+
+        print("Veículo chamado:", atendimento.placa)
+        print("Cliente:", atendimento.nome_cliente)
+        print("Queixa:", atendimento.queixa)
+
+    def liberar_elevador(self):
+        if self.elevadores_ocupados > 0:
+            self.elevadores_ocupados -= 1
+            print("Elevador disponível!")
+        else:
+            print("Os elevadores estõa livres")
