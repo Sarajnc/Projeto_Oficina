@@ -81,3 +81,101 @@ class ListaEncadeada:
         else:
             anterior.proximo = atual.proximo
         return True
+
+class NoArvore:
+    def __init__(self, componente, codigo_peca = None, estado = "OK"):
+        self.componente = componente
+        self.codigo_peca = codigo_peca
+        self.estado = estado
+        self.filhos = ListaEncadeada()
+
+    def adicionar_filho(self,filho):
+        self.filhos.adicionar(filho)
+
+class ArvoreComponente:
+    def __init__(self):
+        self.raiz = NoArvore("Veiculo")
+
+    def montar_arvore(self):
+        motor = NoArvore("Motor")
+        freios = NoArvore("Freios")
+        suspensao = NoArvore("Suspensão")
+
+        self.raiz.adicionar_filho(motor)
+        self.raiz.adicionar_filho(freios)
+        self.raiz.adicionar_filho(suspensao)
+
+        # Motor
+        ignicao = NoArvore("Sistema de ignição")
+        correia = NoArvore("Correia dentada")
+
+        motor.adicionar_filho(ignicao)
+        motor.adicionar_filho(correia)
+
+        # Sistema de ignição
+        vela = NoArvore("Vela")
+        bobina = NoArvore("Bobina")
+
+        ignicao.adicionar_filho(vela)
+        ignicao.adicionar_filho(bobina)
+
+        # Freios
+        pastilha = NoArvore("Pastilha dianteira")
+        disco = NoArvore("Disco dianteiro")
+
+        freios.adicionar_filho(pastilha)
+        freios.adicionar_filho(disco)
+
+        # Suspensão
+        amortecedor = NoArvore("Amortecedor")
+        bandeja = NoArvore("Bandeja")
+
+        suspensao.adicionar_filho(amortecedor)
+        suspensao.adicionar_filho(bandeja)
+
+    def mostrar_arvore(self):
+        self._mostrar_no(self.raiz, 0)
+
+    def _mostrar_no(self, no, nivel):
+        texto = " " * (nivel * 4) + no.componente
+        texto += " | Estado: " + no.estado
+
+        if no.codigo_peca is not None:
+            texto += " | Código: " + no.codigo_peca
+
+        print(texto)
+
+        atual = no.filhos.inicio
+
+        while atual is not None:
+            self._mostrar_no(atual.dado, nivel + 1)
+            atual = atual.proximo
+    def buscar_componente(self, no, nome):
+        if no.componente.lower() == nome.lower():
+            return no
+
+        atual = no.filhos.inicio
+
+        while atual is not None:
+            encontrado = self.buscar_componente(atual.dado, nome)
+
+            if encontrado is not None:
+                return encontrado
+
+        atual = atual.proximo
+
+        return None
+
+    def alterar_estado(self, nome, novo_estado):
+        if novo_estado not in ("OK", "Com defeito"):
+            print("Estado inválido!")
+            return
+
+        componente = self.buscar_componente(self.raiz, nome)
+
+        if componente is None:
+            print("Componente não encontrado!")
+            return
+
+        componente.estado = novo_estado
+        print("Estado atualizado com sucesso!")
