@@ -33,35 +33,6 @@ class Fila:
     def esta_vazia(self):
         return self.inicio is None
 
-class LoteEstoque:
-    def __init__(
-        self,
-        quantidade,
-        fornecedor,
-        preco_compra,
-        data_entrada,
-        data_validade=None
-    ):
-        self.quantidade = quantidade
-        self.fornecedor = fornecedor
-        self.preco_compra = preco_compra
-        self.data_entrada = data_entrada
-        self.data_validade = data_validade
-
-class Peca:
-    def __init__(
-        self,
-        codigo,
-        descricao,
-        preco_venda=0.0,
-        estoque_minimo=0
-    ):
-        self.codigo = codigo
-        self.descricao = descricao
-        self.preco_venda = preco_venda
-        self.estoque_minimo = estoque_minimo
-        self.lotes = Fila()
-
 class ListaEncadeada:
     def __init__(self):
         self.inicio = None
@@ -94,6 +65,17 @@ class ListaEncadeada:
             atual = atual.proximo
 
         return None
+
+    def contem(self, dado):
+        atual = self.inicio
+
+        while atual is not None:
+            if atual.dado == dado:
+                return True
+
+            atual = atual.proximo
+
+        return False
 
     def remover(self, dado):
         atual = self.inicio
