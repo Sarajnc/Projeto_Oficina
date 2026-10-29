@@ -1,4 +1,4 @@
-from estruturas import ListaEncadeada, Fila
+from estruturas import ListaEncadeada, Fila, ArvoreComponente, Peca, LoteEstoque
 from datetime import datetime
 
 class Veiculo:
@@ -34,6 +34,28 @@ class OrdemServico:
 
         self.arvore_componentes = ArvoreComponente()
         self.arvore_componentes.montar_arvore() 
+        
+        self.pecas_utilizadas = []
+
+class Servico:
+    def __init__(self, descricao, valor):
+        self.descricao = descricao
+        self.valor = valor
+
+class RegistroPerda:
+    def __init__(
+        self, codigo, descricao, quantidade, fornecedor,
+        data_validade, preco_compra, motivo
+    ):
+        self.codigo = codigo
+        self.descricao = descricao
+        self.quantidade = quantidade
+        self.fornecedor = fornecedor
+        self.data_validade = data_validade
+        self.preco_compra = preco_compra
+        self.valor_perda = quantidade * preco_compra
+        self.motivo = motivo
+        self.data_registro = datetime.now()
 
 class ControleOficina:
     def __init__(self):
@@ -51,7 +73,12 @@ class ControleOficina:
 
         self.ordens_servico = ListaEncadeada()
 
+        self.estoque = ListaEncadeada()
+        
+        self.perdas = ListaEncadeada()
+
         self.proximo_id = 1 
+        self.proximo_id_os = 1
 
     def buscar_cliente(self, cpf):
         atual = self.clientes.inicio
@@ -202,7 +229,7 @@ class ControleOficina:
 
         print("Veículo não possui atendimento em andamento!")
         return None
-        
+    
     def registrar_diagnostico(self, id_os, nome_componente):
         atual = self.ordens_servico.inicio
 
@@ -227,3 +254,403 @@ class ControleOficina:
             atual = atual.proximo
 
         print("Ordem de serviço não encontrada!")
+
+    def adicionar_servico(self, id_os, descricao, valor):
+        atual = self.ordens_servico.inicio
+
+        while atual is not None:
+            ordem = atual.dado
+
+            if ordem.id_os == id_os:
+                if ordem.status != "Aberta":
+                    print("A ordem de serviço não está aberta!")
+                    return
+
+                if valor < 0:
+                    print("O valor não pode ser negativo!")
+                    return
+
+                servico = Servico(descricao, valor)
+                ordem.servicos.append(servico)
+                ordem.valor_total += valor
+
+                print("Serviço adicionado com sucesso!")
+                print("Valor total da OS: R$", ordem.valor_total)
+                return
+
+            atual = atual.proximo
+
+        print("Ordem de serviço não encontrada!")
+
+    def adicionar_peca_ordem_servico(self, id_os, codigo, quantidade):
+        atual = self.ordens_servico.inicio
+
+        while atual is not None:
+            ordem = atual.dado
+
+            if ordem.id_os == id_os:
+                if ordem.status != "Aberta":
+                    print("A ordem de serviço não está aberta!")
+                    return
+
+                peca = self.buscar_peca(codigo)
+
+                if peca is None:
+                    print("Peça não encontrada!")
+                    return
+
+                if not isinstance(quantidade, int) or quantidade <= 0:
+                    print("A quantidade deve ser um inteiro positivo!")
+                    return
+
+                disponivel = self._quantidade_total(peca)
+
+                if disponivel < quantidade:
+                    print("Estoque insuficiente!")
+                    return
+
+                sucesso = self.retirar_estoque(codigo, quantidade)
+
+                if not sucesso:
+                    return
+
+                ordem.pecas_utilizadas.append({
+                    "codigo": peca.codigo,
+                    "descricao": peca.descricao,
+                    "quantidade": quantidade,
+                    "valor_unitario": peca.preco_venda
+                })
+
+                valor_pecas = peca.preco_venda * quantidade
+                ordem.valor_total += valor_pecas
+
+                print("Peça adicionada à ordem de serviço!")
+                print("Peça:", peca.descricao)
+                print("Quantidade:", quantidade)
+                print("Valor das peças: R$", valor_pecas)
+                print("Total da OS: R$", ordem.valor_total)
+                return
+
+            atual = atual.proximo
+
+    def fechar_ordem_servico(self, id_os):
+        atual = self.ordens_servico.inicio
+
+        while atual is not None:
+            ordem = atual.dado
+
+            if ordem.id_os == id_os:
+                if ordem.status != "Aberta":
+                    print("A ordem de serviço já foi encerrada!")
+                    return
+
+                if len(ordem.servicos) == 0:
+                    print("Adicione pelo menos um serviço antes de fechar a OS!")
+                    return
+
+                placa = ordem.atendimento.placa
+                atendimento = self.atendimentos_em_andamento.inicio
+
+                while atendimento is not None:
+                    if atendimento.dado.placa == placa:
+                        break
+                    atendimento = atendimento.proximo
+
+                if atendimento is None:
+                    print("Veículo não está em atendimento!")
+                    return
+
+                ordem.status = "Concluída"
+                self.liberar_elevador(placa)
+
+                print("Ordem de serviço concluída!")
+                print("Número da OS:", ordem.id_os)
+                print("Valor final: R$", ordem.valor_total)
+                return
+
+            atual = atual.proximo
+
+        print("Ordem de serviço não encontrada!")
+
+    def buscar_peca(self, codigo):
+        atual = self.estoque.inicio
+
+        while atual is not None:
+            if atual.dado.codigo == codigo:
+                return atual.dado
+            atual = atual.proximo
+
+        return None
+
+    def cadastrar_peca(
+        self, codigo, descricao, preco_venda=0.0, estoque_minimo=0
+    ):
+        if self.buscar_peca(codigo) is not None:
+            print("Código de peça já cadastrado!")
+            return
+
+        if preco_venda < 0 or estoque_minimo < 0:
+            print("Os valores não podem ser negativos!")
+            return
+
+        peca = Peca(codigo, descricao, preco_venda, estoque_minimo)
+        self.estoque.adicionar(peca)
+
+        print("Peça cadastrada com sucesso!")
+
+    def registrar_entrada_estoque(
+        self, codigo, quantidade, fornecedor, preco_compra,
+        data_validade=None
+    ):
+        peca = self.buscar_peca(codigo)
+
+        if peca is None:
+            print("Peça não encontrada!")
+            return
+
+        if not isinstance(quantidade, int) or quantidade <= 0:
+            print("A quantidade deve ser um número inteiro positivo!")
+            return
+
+        if preco_compra < 0:
+            print("O preço de compra não pode ser negativo!")
+            return
+
+        if not fornecedor.strip():
+            print("Informe o fornecedor!")
+            return
+
+        if data_validade:
+            try:
+                data_validade = datetime.strptime(
+                    data_validade, "%d/%m/%Y"
+                )
+            except ValueError:
+                print("Data inválida! Use DD/MM/AAAA.")
+                return
+
+        lote = LoteEstoque(quantidade,fornecedor,preco_compra,datetime.now(),data_validade)
+
+        peca.lotes.enfileirar(lote)
+
+        print("Entrada registrada com sucesso!")
+        print("Peça:", peca.descricao)
+        print("Quantidade recebida:", quantidade)
+
+        self.verificar_estoque_minimo(codigo)
+
+    def _quantidade_total(self, peca):
+        total = 0
+        atual = peca.lotes.inicio
+
+        while atual is not None:
+            total += atual.dado.quantidade
+            atual = atual.proximo
+
+        return total
+
+    def _baixar_quantidade(self, peca, quantidade):
+        restante = quantidade
+
+        while restante > 0:
+            lote = peca.lotes.inicio.dado
+
+            if lote.quantidade <= restante:
+                restante -= lote.quantidade
+                peca.lotes.desenfileirar()
+            else:
+                lote.quantidade -= restante
+                restante = 0
+
+    def consultar_estoque(self, codigo):
+        self.descartar_lotes_vencidos()
+
+        peca = self.buscar_peca(codigo)
+
+        if peca is None:
+            print("Peça não encontrada!")
+            return
+
+        quantidade = self._quantidade_total(peca)
+
+        print("Peça:", peca.descricao)
+        print("Quantidade disponível:", quantidade)
+
+        self.verificar_estoque_minimo(codigo)
+
+        return quantidade
+
+    def retirar_estoque(self, codigo, quantidade):
+        if not isinstance(quantidade, int) or quantidade <= 0:
+            print("A quantidade deve ser um número inteiro positivo!")
+            return False
+
+        self.descartar_lotes_vencidos()
+
+        peca = self.buscar_peca(codigo)
+
+        if peca is None:
+            print("Peça não encontrada!")
+            return False
+
+        disponivel = self._quantidade_total(peca)
+
+        if disponivel < quantidade:
+            print("Estoque insuficiente!")
+            return False
+
+        self._baixar_quantidade(peca, quantidade)
+
+        print("Retirada registrada com sucesso!")
+        print("Peça:", peca.descricao)
+        print("Quantidade retirada:", quantidade)
+
+        self.verificar_estoque_minimo(codigo)
+        return True
+
+    def descartar_lotes_vencidos(self):
+        hoje = datetime.now().date()
+        atual_peca = self.estoque.inicio
+        total_descartado = 0
+
+        while atual_peca is not None:
+            peca = atual_peca.dado
+            fila_nova = Fila()
+
+            while not peca.lotes.esta_vazia():
+                lote = peca.lotes.desenfileirar()
+
+                if lote.data_validade is not None:
+                    validade = lote.data_validade
+
+                    if isinstance(validade, datetime):
+                        validade = validade.date()
+
+                    if validade < hoje:
+                        perda = RegistroPerda(
+                            peca.codigo,
+                            peca.descricao,
+                            lote.quantidade,
+                            lote.fornecedor,
+                            lote.data_validade,
+                            lote.preco_compra,
+                            "Lote vencido"
+                        )
+
+                        self.perdas.adicionar(perda)
+                        total_descartado += 1
+                        print(
+                            "Lote vencido descartado:",
+                            peca.descricao,
+                            "| Quantidade:",
+                            lote.quantidade
+                        )
+                        continue
+
+                fila_nova.enfileirar(lote)
+
+            peca.lotes = fila_nova
+            atual_peca = atual_peca.proximo
+
+        if total_descartado == 0:
+            print("Nenhum lote vencido encontrado.")
+        else:
+            print("Lotes descartados:", total_descartado)
+
+        return total_descartado
+
+    def ajustar_estoque(self, codigo, nova_quantidade):
+        if (not isinstance(nova_quantidade, int)or nova_quantidade < 0):
+            print("Informe uma quantidade inteira igual ou maior que zero!")
+            return
+
+        self.descartar_lotes_vencidos()
+
+        peca = self.buscar_peca(codigo)
+
+        if peca is None:
+            print("Peça não encontrada!")
+            return
+
+        quantidade_atual = self._quantidade_total(peca)
+
+        if nova_quantidade == quantidade_atual:
+            print("O estoque já possui essa quantidade.")
+            return
+
+        if nova_quantidade > quantidade_atual:
+            diferenca = nova_quantidade - quantidade_atual
+
+            lote_ajuste = LoteEstoque(diferenca,"Ajuste de inventário",0.0,datetime.now(),None)
+
+            peca.lotes.enfileirar(lote_ajuste)
+
+        else:
+            diferenca = quantidade_atual - nova_quantidade
+            self._baixar_quantidade(peca, diferenca)
+
+        print("Inventário ajustado com sucesso!")
+        print("Quantidade anterior:", quantidade_atual)
+        print("Quantidade atual:", nova_quantidade)
+
+        self.verificar_estoque_minimo(codigo)
+
+    def verificar_estoque_minimo(self, codigo=None):
+        if codigo is not None:
+            peca = self.buscar_peca(codigo)
+
+            if peca is None:
+                print("Peça não encontrada!")
+                return
+
+            quantidade = self._quantidade_total(peca)
+
+            if quantidade < peca.estoque_minimo:
+                print(
+                    "ALERTA: estoque abaixo do mínimo para",
+                    peca.descricao,
+                    "| Disponível:", quantidade,
+                    "| Mínimo:", peca.estoque_minimo
+                )
+
+            return quantidade
+
+        atual = self.estoque.inicio
+
+        while atual is not None:
+            peca = atual.dado
+            quantidade = self._quantidade_total(peca)
+
+            if quantidade < peca.estoque_minimo:
+                print(
+                    "ALERTA: estoque abaixo do mínimo para",
+                    peca.descricao,
+                    "| Disponível:", quantidade,
+                    "| Mínimo:", peca.estoque_minimo
+                )
+
+            atual = atual.proximo
+
+    def mostrar_perdas(self):
+        atual = self.perdas.inicio
+
+        if atual is None:
+            print("Nenhuma perda registrada.")
+            return
+
+        print("=== REGISTRO DE PERDAS ===")
+
+        while atual is not None:
+            perda = atual.dado
+
+            print("Peça:", perda.descricao)
+            print("Código:", perda.codigo)
+            print("Quantidade descartada:", perda.quantidade)
+            print("Fornecedor:", perda.fornecedor)
+            print("Motivo:", perda.motivo)
+            print("Valor estimado da perda: R$", perda.valor_perda)
+            print(
+                "Data do registro:",
+                perda.data_registro.strftime("%d/%m/%Y %H:%M")
+            )
+            print("---------------------------")
