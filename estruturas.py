@@ -150,6 +150,7 @@ class ArvoreComponente:
         while atual is not None:
             self._mostrar_no(atual.dado, nivel + 1)
             atual = atual.proximo
+
     def buscar_componente(self, no, nome):
         if no.componente.lower() == nome.lower():
             return no
@@ -162,7 +163,7 @@ class ArvoreComponente:
             if encontrado is not None:
                 return encontrado
 
-        atual = atual.proximo
+            atual = atual.proximo
 
         return None
 
